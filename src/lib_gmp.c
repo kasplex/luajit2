@@ -12,6 +12,9 @@
 #include "lj_lib.h"
 
 ////////////////////////////////
+static int _gmp_nlimit = 0;
+static mpz_t *_gmp_zlimit = NULL;
+#define _GMP_ZLIMIT(z) if (_gmp_zlimit) mpz_tdiv_r(z, z, *_gmp_zlimit);
 #define _GMP_ZMT "_gmp_zmt"
 #define _GMP_ZCHK_(z,n) \
   mpz_t *z = (mpz_t*)luaL_checkudata(L, n, _GMP_ZMT);
@@ -22,11 +25,8 @@
   mpz_t *z = (mpz_t*)luaL_checkudata(L, 1, _GMP_ZMT); \
   mpz_t *a = (mpz_t*)luaL_checkudata(L, 2, _GMP_ZMT); \
   mpz_t *b = (mpz_t*)luaL_checkudata(L, 3, _GMP_ZMT);
-
-////////////////////////////////
-static int _gmp_nlimit = 0;
-static mpz_t *_gmp_zlimit = NULL;
-#define _GMP_ZLIMIT(z) if (_gmp_zlimit) mpz_tdiv_r(z, z, *_gmp_zlimit);
+#define _GMP_ZCHK_limit(n,s) if (_gmp_nlimit && n>_gmp_nlimit) { luaL_error(L, s); return 0; }
+#define _GMP_ZCHK_DIV_zero(z,s) if (0==mpz_sgn(*z)) { luaL_error(L, s); return 0; }
 
 ////////////////////////////////
 void _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
@@ -36,6 +36,7 @@ void _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
     if (b<2 || b>62) b = 0;
     if (mpz_set_str(*z, s, b) != 0) {
       luaL_error(L, "gmp_zset() failed");
+      return;
     }
   } else if (lua_type(L, i)==LUA_TNUMBER) {
     double d = luaL_checknumber(L, i);
@@ -171,6 +172,7 @@ static int gmp_zsubmul(lua_State *L) {
 ////////////////////////////////
 static int gmp_zdivtq(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zdivtq() zero divisor")
   mpz_tdiv_q(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -179,6 +181,7 @@ static int gmp_zdivtq(lua_State *L) {
 ////////////////////////////////
 static int gmp_zdivtr(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zdivtr() zero divisor")
   mpz_tdiv_r(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -187,6 +190,7 @@ static int gmp_zdivtr(lua_State *L) {
 ////////////////////////////////
 static int gmp_zdivfq(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zdivfq() zero divisor")
   mpz_fdiv_q(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -195,6 +199,7 @@ static int gmp_zdivfq(lua_State *L) {
 ////////////////////////////////
 static int gmp_zdivfr(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zdivfr() zero divisor")
   mpz_fdiv_r(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -203,6 +208,7 @@ static int gmp_zdivfr(lua_State *L) {
 ////////////////////////////////
 static int gmp_zdivcq(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zdivcq() zero divisor")
   mpz_cdiv_q(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -211,6 +217,7 @@ static int gmp_zdivcq(lua_State *L) {
 ////////////////////////////////
 static int gmp_zdivcr(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zdivcr() zero divisor")
   mpz_cdiv_r(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -219,6 +226,7 @@ static int gmp_zdivcr(lua_State *L) {
 ////////////////////////////////
 static int gmp_zmod(lua_State *L) {
   _GMP_ZCHK_ab
+  _GMP_ZCHK_DIV_zero(b, "gmp_zmod() zero divisor")
   mpz_mod(*a, *a, *b);
   lua_pushvalue(L, 1);
   return 1;
@@ -290,9 +298,7 @@ static int gmp_zcom(lua_State *L) {
 static int gmp_zlshift(lua_State *L) {
   _GMP_ZCHK_(a, 1)
   unsigned long b = luaL_checklong(L, 2);
-  if (_gmp_nlimit && b>_gmp_nlimit) {
-    luaL_error(L, "gmp_zlshift() limited");
-  }
+  _GMP_ZCHK_limit(b, "gmp_zlshift() limited")
   mpz_mul_2exp(*a, *a, b);
   _GMP_ZLIMIT(*a);
   lua_pushvalue(L, 1);
@@ -311,9 +317,7 @@ static int gmp_zrshift(lua_State *L) {
 static int gmp_zbset(lua_State *L) {
   _GMP_ZCHK_(a, 1)
   unsigned long b = luaL_checklong(L, 2);
-  if (_gmp_nlimit && b>_gmp_nlimit) {
-    luaL_error(L, "gmp_zbset() limited");
-  }
+  _GMP_ZCHK_limit(b, "gmp_zbset() limited")
   mpz_setbit(*a, b);
   lua_pushvalue(L, 1);
   return 1;
