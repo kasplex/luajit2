@@ -225,7 +225,7 @@ TARGET_DYNXLDOPTS=
 TARGET_LFSFLAGS= -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE
 TARGET_XCFLAGS= $(TARGET_LFSFLAGS) -U_FORTIFY_SOURCE
 TARGET_XLDFLAGS=
-TARGET_XLIBS= -lm -lgmp
+TARGET_XLIBS= -lm -lgmp -lhashsum -lsha2 -lkeccak -lblake -static
 TARGET_TCFLAGS= $(CCOPTIONS) $(TARGET_XCFLAGS) $(TARGET_FLAGS) $(TARGET_CFLAGS)
 TARGET_ACFLAGS= $(CCOPTIONS) $(TARGET_XCFLAGS) $(TARGET_FLAGS) $(TARGET_CFLAGS)
 TARGET_ASFLAGS= $(ASOPTIONS) $(TARGET_XCFLAGS) $(TARGET_FLAGS) $(TARGET_CFLAGS)
@@ -394,7 +394,7 @@ endif
 ##############################################################################
 
 MINILUA_O= host/minilua.o
-MINILUA_LIBS= -lm -lgmp
+MINILUA_LIBS= -lm -lgmp -lhashsum -lsha2 -lkeccak -lblake -static
 MINILUA_T= host/minilua
 MINILUA_X= $(MINILUA_T)
 MINILUA_DEP=
@@ -516,7 +516,7 @@ LJVM_MODE= elfasm
 
 LJLIB_O= lib_base.o lib_math.o lib_bit.o lib_string.o lib_table.o \
 	 lib_io.o lib_os.o lib_package.o lib_debug.o lib_jit.o lib_ffi.o \
-	 lib_buffer.o lib_gmp.o
+	 lib_buffer.o lib_gmp.o lib_crypt.o
 LJLIB_C= $(LJLIB_O:.o=.c)
 
 LJCORE_O= lj_assert.o lj_gc.o lj_err.o lj_char.o lj_bc.o lj_obj.o lj_buf.o \

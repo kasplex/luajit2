@@ -25,8 +25,8 @@ static mpz_t *_gmp_zlimit = NULL;
   mpz_t *z = (mpz_t*)luaL_checkudata(L, 1, _GMP_ZMT); \
   mpz_t *a = (mpz_t*)luaL_checkudata(L, 2, _GMP_ZMT); \
   mpz_t *b = (mpz_t*)luaL_checkudata(L, 3, _GMP_ZMT);
-#define _GMP_ZCHK_limit(n,s) if (_gmp_nlimit && n>_gmp_nlimit) { luaL_error(L, s); return 0; }
-#define _GMP_ZCHK_DIV_zero(z,s) if (0==mpz_sgn(*z)) { luaL_error(L, s); return 0; }
+#define _GMP_ZCHK_limit(n,err) if (_gmp_nlimit && n>_gmp_nlimit) { luaL_error(L, err); return 0; }
+#define _GMP_ZCHK_DIV_zero(z,err) if (0==mpz_sgn(*z)) { luaL_error(L, err); return 0; }
 
 ////////////////////////////////
 void _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
@@ -35,7 +35,7 @@ void _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
     int b = luaL_optinteger(L, i+1, 0);
     if (b<2 || b>62) b = 0;
     if (mpz_set_str(*z, s, b) != 0) {
-      luaL_error(L, "gmp_zset() failed");
+      luaL_error(L, "_gmp_zsetto() failed");
       return;
     }
   } else if (lua_type(L, i)==LUA_TNUMBER) {
