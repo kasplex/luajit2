@@ -14,7 +14,6 @@
 ////////////////////////////////
 static int _gmp_nlimit = 0;
 static mpz_t *_gmp_zlimit = NULL;
-#define _GMP_ZLIMIT(z) if (_gmp_zlimit) mpz_tdiv_r(z, z, *_gmp_zlimit);
 #define _GMP_ZMT "_gmp_zmt"
 #define _GMP_ZCHK_(z,n) \
   mpz_t *z = (mpz_t*)luaL_checkudata(L, n, _GMP_ZMT);
@@ -25,18 +24,19 @@ static mpz_t *_gmp_zlimit = NULL;
   mpz_t *z = (mpz_t*)luaL_checkudata(L, 1, _GMP_ZMT); \
   mpz_t *a = (mpz_t*)luaL_checkudata(L, 2, _GMP_ZMT); \
   mpz_t *b = (mpz_t*)luaL_checkudata(L, 3, _GMP_ZMT);
-#define _GMP_ZCHK_limit(n,err) if (_gmp_nlimit && n>_gmp_nlimit) { luaL_error(L, err); return 0; }
+#define _GMP_ZCHK_limit(n,err) if (_gmp_nlimit && n>=_gmp_nlimit) { luaL_error(L, err); return 0; }
 #define _GMP_ZCHK_DIV_zero(z,err) if (0==mpz_sgn(*z)) { luaL_error(L, err); return 0; }
+#define _GMP_ZLIMIT(z,err) if (_gmp_zlimit && mpz_cmpabs(z,*_gmp_zlimit)>0) { luaL_error(L, err); return 0; }
 
 ////////////////////////////////
-void _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
+int _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
   if (lua_type(L, i)==LUA_TSTRING) {
     const char *s = luaL_checkstring(L, i);
     int b = luaL_optinteger(L, i+1, 0);
     if (b<2 || b>62) b = 0;
     if (mpz_set_str(*z, s, b) != 0) {
       luaL_error(L, "_gmp_zsetto() failed");
-      return;
+      return 0;
     }
   } else if (lua_type(L, i)==LUA_TNUMBER) {
     double d = luaL_checknumber(L, i);
@@ -47,14 +47,17 @@ void _gmp_zsetto(lua_State *L, mpz_t *z, int i) {
     _GMP_ZCHK_(a, i)
     mpz_set(*z, *a);
   }
-  _GMP_ZLIMIT(*z);  
+  _GMP_ZLIMIT(*z, "_gmp_zsetto() overflow");
+  return 1;
 }
 
 ////////////////////////////////
 static int gmp_znew(lua_State *L) {
   mpz_t *z = (mpz_t*)lua_newuserdata(L, sizeof(mpz_t));
   mpz_init(*z);
-  _gmp_zsetto(L, z, 1);
+  if (_gmp_zsetto(L, z, 1)==0) {
+    return 0;
+  }
   luaL_getmetatable(L, _GMP_ZMT);
   lua_setmetatable(L, -2);
   return 1;
@@ -70,7 +73,9 @@ static int gmp_zclear(lua_State *L) {
 ////////////////////////////////
 static int gmp_zset(lua_State *L) {
   _GMP_ZCHK_(z, 1)
-  _gmp_zsetto(L, z, 2);
+  if (_gmp_zsetto(L, z, 2)==0) {
+    return 0;
+  }
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -97,7 +102,7 @@ static int gmp_znum(lua_State *L) {
 static int gmp_zadd(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_add(*a, *a, *b);
-  _GMP_ZLIMIT(*a);
+  _GMP_ZLIMIT(*a, "gmp_zadd() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -105,7 +110,7 @@ static int gmp_zadd(lua_State *L) {
 static int gmp_zsub(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_sub(*a, *a, *b);
-  _GMP_ZLIMIT(*a);
+  _GMP_ZLIMIT(*a, "gmp_zsub() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -113,7 +118,7 @@ static int gmp_zsub(lua_State *L) {
 static int gmp_zmul(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_mul(*a, *a, *b);
-  _GMP_ZLIMIT(*a);
+  _GMP_ZLIMIT(*a, "gmp_zmul() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -156,7 +161,7 @@ static int gmp_zeven(lua_State *L) {
 static int gmp_zaddmul(lua_State *L) {
   _GMP_ZCHK_zab
   mpz_addmul(*z, *a, *b);
-  _GMP_ZLIMIT(*z);
+  _GMP_ZLIMIT(*z, "gmp_zaddmul() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -164,7 +169,7 @@ static int gmp_zaddmul(lua_State *L) {
 static int gmp_zsubmul(lua_State *L) {
   _GMP_ZCHK_zab
   mpz_submul(*z, *a, *b);
-  _GMP_ZLIMIT(*z);
+  _GMP_ZLIMIT(*z, "gmp_zsubmul() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -266,6 +271,7 @@ static int gmp_zcmpabs(lua_State *L) {
 static int gmp_zand(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_and(*a, *a, *b);
+  _GMP_ZLIMIT(*a, "gmp_zand() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -274,6 +280,7 @@ static int gmp_zand(lua_State *L) {
 static int gmp_zor(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_ior(*a, *a, *b);
+  _GMP_ZLIMIT(*a, "gmp_zor() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -282,6 +289,7 @@ static int gmp_zor(lua_State *L) {
 static int gmp_zxor(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_xor(*a, *a, *b);
+  _GMP_ZLIMIT(*a, "gmp_zxor() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -290,6 +298,7 @@ static int gmp_zxor(lua_State *L) {
 static int gmp_zcom(lua_State *L) {
   _GMP_ZCHK_ab
   mpz_com(*a, *b);
+  _GMP_ZLIMIT(*a, "gmp_zcom() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -300,7 +309,7 @@ static int gmp_zlshift(lua_State *L) {
   unsigned long b = luaL_checklong(L, 2);
   _GMP_ZCHK_limit(b, "gmp_zlshift() limited")
   mpz_mul_2exp(*a, *a, b);
-  _GMP_ZLIMIT(*a);
+  _GMP_ZLIMIT(*a, "gmp_zlshift() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
@@ -319,6 +328,7 @@ static int gmp_zbset(lua_State *L) {
   unsigned long b = luaL_checklong(L, 2);
   _GMP_ZCHK_limit(b, "gmp_zbset() limited")
   mpz_setbit(*a, b);
+  _GMP_ZLIMIT(*a, "gmp_zbset() overflow");
   lua_pushvalue(L, 1);
   return 1;
 }
